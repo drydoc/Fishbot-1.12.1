@@ -1,6 +1,8 @@
 # Fishbot
 World of Warcraft 1.12.1 Fishing Bot
 
+Note: This project will be getting delayed updates from 01 Aug 2016 for at least 1 month (from myself)
+
 Developed for educational purposes.
 
 Note: 
