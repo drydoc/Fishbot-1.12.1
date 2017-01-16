@@ -68,11 +68,18 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ConstantEnums.cs" />
     <Compile Include="GUI\MainWindow.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="GUI\MainWindow.Designer.cs">
       <DependentUpon>MainWindow.cs</DependentUpon>
+    </Compile>
+    <Compile Include="GUI\SelectWoWProcessToAttachTo.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="GUI\SelectWoWProcessToAttachTo.designer.cs">
+      <DependentUpon>SelectWoWProcessToAttachTo.cs</DependentUpon>
     </Compile>
     <Compile Include="Hook\DirectX\D3D11Device.cs" />
     <Compile Include="Hook\DirectX\D3D9Device.cs" />
@@ -84,10 +91,15 @@
     <Compile Include="Hook\Utility.cs" />
     <Compile Include="Helpers\Log.cs" />
     <Compile Include="Helpers\Offsets.cs" />
+    <Compile Include="Location.cs" />
+    <Compile Include="Object.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="GUI\MainWindow.resx">
       <DependentUpon>MainWindow.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="GUI\SelectWoWProcessToAttachTo.resx">
+      <DependentUpon>SelectWoWProcessToAttachTo.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
@@ -118,6 +130,7 @@
   <ItemGroup>
     <Content Include="FodyWeavers.xml" />
     <Content Include="Fishy.ico" />
+    <None Include="Resources\1322136126-texte.png" />
   </ItemGroup>
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

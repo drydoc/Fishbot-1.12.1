@@ -29,7 +29,7 @@ namespace FishBot
                 "mov ecx, " + doStringArgCodecave,
                 "mov edx, " + doStringArgCodecave,
                 "call " + ((uint) Offsets.FrameScript__Execute + _wowHook.Process.BaseOffset()),  // Lua_DoString   
-                "retn",    
+                "retn"    
             };
                 
             // Inject
@@ -38,34 +38,30 @@ namespace FishBot
             _wowHook.Memory.FreeMemory(doStringArgCodecave);
         }
 
-        //internal string GetLocalizedText(string localVar)
-        //{
-        //    if (_wowHook.Installed)
-        //    {
-        //        IntPtr Lua_GetLocalizedText_Space = _wowHook.Memory.AllocateMemory(Encoding.UTF8.GetBytes(localVar).Length + 1);
+        internal string GetLocalizedText(string localVar)
+        {
+            if (!_wowHook.Installed) return "WoW Hook not installed";
+            
+            var getTextCodecave = _wowHook.Memory.AllocateMemory(0xA);
 
-        //        _wowHook.Memory.Write<byte>(Lua_GetLocalizedText_Space, Encoding.UTF8.GetBytes(localVar), false);
+            _wowHook.Memory.WriteString(getTextCodecave, localVar + "\0", Encoding.UTF8);
+                
+            var asm = new[]
+                {
+                "push 0",
+                "or edx, 0FFFFFFFFh",
+                "mov ecx, " + getTextCodecave,
+                "call " + ((uint) Offsets.GetText + _wowHook.Process.BaseOffset()),
+                "retn"
+                };
 
-        //        String[] asm = new String[] 
-        //        {
-        //            "call " + ((uint) Offsets.ClntObjMgrGetActivePlayerObj + _wowHook.Process.BaseOffset()  ),
-        //            "mov ecx, eax",
-        //            "push -1",
-        //            "mov edx, " + Lua_GetLocalizedText_Space + "",
-        //            "push edx",
-        //            "call " + ((uint) Offsets.FrameScript__GetLocalizedText + _wowHook.Process.BaseOffset() ) ,                    
-        //            "retn",
-        //        };
+            string sResult = Encoding.UTF8.GetString(_wowHook.InjectAndExecute(asm));
 
-        //        string sResult = Encoding.UTF8.GetString(_wowHook.InjectAndExecute(asm));
-
-        //        // Free memory allocated 
-        //        _wowHook.Memory.FreeMemory(Lua_GetLocalizedText_Space);
-        //        return sResult;
-        //    }
-        //    return "WoW Hook not installed";
-        //}
-
+            // Free memory allocated 
+            _wowHook.Memory.FreeMemory(getTextCodecave);
+            return sResult;
+        }
+        
         public void SendTextMessage(string message)
         {
             //DoString(string.Format("SendChatMessage(\"" + message + "\", \"EMOTE\", nil, \"General\")"));
@@ -79,7 +75,7 @@ namespace FishBot
             SendTextMessage("Casting: " + spell);
         }
 
-        public void ctm(float x, float y, float z, ulong guid, int action, float precision, IntPtr playerBaseAddress)
+        public void ClickToMove(float x, float y, float z, ulong guid, int action, float precision, IntPtr playerBaseAddress)
         {
             // Offset:
             const uint CGPlayer_C__ClickToMove = 0x727400;
@@ -137,7 +133,7 @@ namespace FishBot
                 "push " + autoLoot,
                 "mov ECX, " + baseAddr,
                 "call " + (uint)Offsets.OnRightClickObject,
-                "retn",
+                "retn"
             };
 
             _wowHook.InjectAndExecute(asm);

@@ -6,9 +6,10 @@ namespace FishBot
     {
         public static IntPtr CurMgrPointer = new IntPtr(0x00741414); // 1.12.1
         public static IntPtr CurMgrOffset = new IntPtr(0xAC); // 1.12.1
-        public static IntPtr FirstObjectOffset = new IntPtr(0xAC); // 1.12.1
-        public static IntPtr NextObjectOffset = new IntPtr(0x3C); // 1.12.1
+        public static int FirstObjectOffset = 0xAC; // 1.12.1
+        public static int NextObjectOffset = 0x3C; // 1.12.1
         public static int Type = 0x14; // 1.12.1
+        public static int DescriptorOffset = 0x8;
         public static int LocalGUID = 0x30; // 1.12.1
 
         public static IntPtr MouseOverGUID = new IntPtr(0x00B4E2C8); // 1.12.1
@@ -19,6 +20,8 @@ namespace FishBot
         public static int ObjectName2 = 0x8; // 1.12.1
         public static int UnitName1 = 0xB30; // 1.12.1
         public static int UnitName2 = 0x0; // 1.12.1
+
+        public static IntPtr GetText = new IntPtr(0x303BF0);
 
         public static IntPtr PlayerName = new IntPtr(0x827D88); // 1.12.1
         public static IntPtr TargetGUID = new IntPtr(0x74E2D4); // 1.12.1

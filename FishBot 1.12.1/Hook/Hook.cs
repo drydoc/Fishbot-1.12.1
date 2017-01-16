@@ -6,6 +6,7 @@ using System.Drawing;
 using System.Threading;
 using GreyMagic;
 using WoW.DirectX;
+
 // ReSharper disable CheckNamespace
 
 namespace FishBot
@@ -60,10 +61,10 @@ namespace FishBot
                 if (Memory.IsProcessOpen)
                 {
                     // if we're under windows 8 then we need to patch the endscene hook to make it work with HB's hook.. this is a bit hackish
-                    if (UsingWin8 && !_dx3D.UsingDirectX11)
-                    {
-                        FixEndSceneForHB(_dx3D.HookPtr);
-                    }
+                    //if (UsingWin8 && !_dx3D.UsingDirectX11)
+                    //{
+                    //    FixEndSceneForHB(_dx3D.HookPtr);
+                    //}
 
                     // check if game is already hooked and dispose Hook
                     // Memory.Read<byte>(_dx3D.HookPtr) == 0x8B when not hooked
@@ -142,7 +143,7 @@ namespace FishBot
                     Memory.Asm.AddLine("jmp @top");
 
                     Memory.Asm.Inject((uint) _dx3D.HookPtr - 5);
-                    
+
                     Installed = true;
                 }
             }
@@ -169,7 +170,7 @@ namespace FishBot
 
                         if (UsingWin8 && !_dx3D.UsingDirectX11)
                         {
-                            _myEndSceneOriginalBytes = new byte[] {144, 144, 144, 144, 144, 144, 144}; // Still to be tested more
+                            _myEndSceneOriginalBytes = new byte[] {204, 204, 204, 204, 204, 106, 32}; // Still to be tested more
 
                             Memory.WriteBytes(_dx3D.HookPtr - 5, _myEndSceneOriginalBytes);
                         }

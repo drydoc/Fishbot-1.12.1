@@ -1,24 +1,44 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Media;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
+using PixelMagic.GUI;
 
 namespace FishBot
 {
+    [SuppressMessage("ReSharper", "AssignNullToNotNullAttribute")]
     public partial class MainWindow : Form
     {
         private static Hook wowHook;
         private static Lua lua;
 
-        private static bool IsFishing;
+        private Process _process;
 
+        public Process process
+        {
+            get
+            {
+                return _process;
+            }
+            set
+            {
+                _process = value;
+                Log.Write("Process Id = " + value.Id);
+            }
+        }
+        
         private static List<ulong> lastBobberGuid;
+
+        private readonly int LocalVersion = int.Parse(Application.ProductVersion.Split('.')[0]);
         private int Caught;
         private IntPtr FirstObj;
         private bool Fish;
@@ -28,9 +48,20 @@ namespace FishBot
             InitializeComponent();
         }
 
-        private static string Exe_Version => File.GetLastWriteTime(System.Reflection.Assembly.GetEntryAssembly().Location).ToString("yyyy.MM.dd");
+        private static bool IsFishing
+        {
+            get
+            {
+                lua.DoString("spellData = UnitChannelInfo('player')");
+                string spell = lua.GetLocalizedText("spellData");
 
-        private readonly int LocalVersion = int.Parse(Application.ProductVersion.Split('.')[0]);
+                if (spell.Length == 0)
+                    return false;
+                return true;
+            }
+        }
+
+        private static string Exe_Version => File.GetLastWriteTime(Assembly.GetEntryAssembly().Location).ToString("yyyy.MM.dd");
 
         private void Form1_Load(object sender, EventArgs e)
         {
@@ -47,54 +78,22 @@ namespace FishBot
         {
             try
             {
-                Log.Write("Attempting to connect to running WoW.exe process...", Color.Black);
+                var frmSelect = new SelectWoWProcessToAttachTo(this);
+                frmSelect.ShowDialog();
 
-                var proc = Process.GetProcessesByName("WoW").FirstOrDefault();
-
-                while (proc == null)
+                if (process == null)
                 {
-                    var res = MessageBox.Show("Please open WoW, and login, and select your character before using the bot.", "FishBot", MessageBoxButtons.OKCancel, MessageBoxIcon.Error);
-
-                    if (res == DialogResult.Cancel)
-                    {
-                        Application.Exit();
-                        return;
-                    }
-
-                    proc = Process.GetProcessesByName("WoW").FirstOrDefault();
+                    Close();
                 }
 
-                wowHook = new Hook(proc);
+                Log.Write("Attempting to connect to running WoW.exe process...", Color.Black);
+                
+                wowHook = new Hook(process);
                 wowHook.InstallHook();
                 lua = new Lua(wowHook);
 
-                Log.Write("Connected to process with ID = " + proc.Id, Color.Black);
-
-                textBox1.Text = wowHook.Memory.ReadString(Offsets.PlayerName, Encoding.UTF8, 512, true);
-
-                Log.Write("Base Address = " + wowHook.Process.BaseOffset().ToString("X"));
-
-                Log.Write("Target GUID = " + wowHook.Memory.Read<ulong>(Offsets.TargetGUID, true));
-
-                var objMgr = wowHook.Memory.Read<IntPtr>(Offsets.CurMgrPointer, true);
-                var curObj = wowHook.Memory.Read<IntPtr>(IntPtr.Add(objMgr, (int) Offsets.FirstObjectOffset));
-
-                FirstObj = curObj;
-
-                Log.Write("First object located @ memory location 0x" + FirstObj.ToString("X"), Color.Black);
-
-                //Thread mouseOver = new Thread(delegate() 
-                //    { 
-                //        for (;;)
-                //        {
-                //            Log.Write("MouseOverGUID = " + wowHook.Memory.Read<UInt64>(Offsets.MouseOverGUID, false).ToString("X"));
-                //            Thread.Sleep(1000);
-                //        }
-                //    });
-                //mouseOver.Start();
-
-                //lua.DoString("DoEmote('dance')");
-
+                Log.Write("Connected to process with ID = " + process?.Id, Color.Black);
+                
                 Log.Write("Click 'Fish' to begin fishing.", Color.Green);
             }
             catch (Exception ex)
@@ -110,6 +109,19 @@ namespace FishBot
 
         private void cmdFish_Click(object sender, EventArgs e)
         {
+            textBox1.Text = wowHook.Memory.ReadString(Offsets.PlayerName, Encoding.UTF8, 512, true);
+
+            Log.Write("Base Address = " + wowHook.Process.BaseOffset().ToString("X"));
+
+            Log.Write("Target GUID = " + wowHook.Memory.Read<ulong>(Offsets.TargetGUID, true));
+
+            var objMgr = wowHook.Memory.Read<IntPtr>(Offsets.CurMgrPointer, true);
+            var curObj = wowHook.Memory.Read<IntPtr>(IntPtr.Add(objMgr, (int)Offsets.FirstObjectOffset));
+
+            FirstObj = curObj;
+
+            Log.Write("First object located @ memory location 0x" + FirstObj.ToString("X"), Color.Black);
+
             lastBobberGuid = new List<ulong>();
 
             cmdStop.Enabled = true;
@@ -130,11 +142,10 @@ namespace FishBot
                         Log.Write("Fishing...", Color.Black);
                         lua.CastSpellByName("Fishing");
                         Thread.Sleep(200); // Give the lure a chance to be placed in the water before we start scanning for it
-                        // 200 ms is a good length, most people play with under that latency
-                        IsFishing = true;
+                                           // 200 ms is a good length, most people play with under that latency
                     }
 
-                    var curObj = FirstObj;
+                    curObj = FirstObj;
 
                     while (curObj.ToInt64() != 0 && (curObj.ToInt64() & 1) == 0)
                     {
@@ -152,12 +163,8 @@ namespace FishBot
                         if ((type == 5) && !lastBobberGuid.Contains(cGUID)) // 5 = Game Object, and ensure that we not finding a bobber we already clicked
                         {
                             // * wow likes leaving the old bobbers in the game world for a while
-                            var objectName = wowHook.Memory.ReadString(
-                                wowHook.Memory.Read<IntPtr>(
-                                    wowHook.Memory.Read<IntPtr>(curObj + Offsets.ObjectName1) + Offsets.ObjectName2
-                                    ),
-                                Encoding.UTF8, 50
-                                );
+                            var objectName = wowHook.Memory.ReadString(wowHook.Memory.Read<IntPtr>(wowHook.Memory.Read<IntPtr>(curObj + Offsets.ObjectName1) + Offsets.ObjectName2),
+                                Encoding.UTF8, 50);
 
                             if (objectName == "Fishing Bobber")
                             {
@@ -179,7 +186,6 @@ namespace FishBot
                                     lastBobberGuid.Add(cGUID);
                                     Thread.Sleep(200);
 
-                                    IsFishing = false;
                                     break;
                                 }
                             }
@@ -205,6 +211,76 @@ namespace FishBot
 
             SystemSounds.Asterisk.Play();
             Fish = false;
+        }
+
+        private void cmdLogin_Click(object sender, EventArgs e)
+        {
+            lua.DoString("DefaultServerLogin('winifix', '0b10ne')");
+        }
+
+        private void cmdDance_Click(object sender, EventArgs e)
+        {
+            lua.DoString("DoEmote('Dance')");
+        }
+
+        private static IEnumerable<Object> Objects
+        {
+            get
+            {
+                var Manager = wowHook.Memory.Read<IntPtr>(Offsets.CurMgrPointer, true);
+
+                for (var baseAddress = wowHook.Memory.Read<IntPtr>(Manager + Offsets.FirstObjectOffset);
+                    !Equals(baseAddress, IntPtr.Zero) && (baseAddress.ToInt64() & 1) == 0;
+                    baseAddress = wowHook.Memory.Read<IntPtr>(baseAddress + Offsets.NextObjectOffset))
+                {
+                    yield return new Object(wowHook, baseAddress);
+                }
+            }
+        }
+
+        private static IntPtr PlayerPtr => wowHook.Memory.Read<IntPtr>(wowHook.Memory.Read<IntPtr>(wowHook.Memory.Read<IntPtr>(new IntPtr(0xC7BCD4)) + 136) + 40);
+            
+        private void cmdGetObjects_Click(object sender, EventArgs e)
+        {
+            Log.Clear();
+
+            textBox1.Text = wowHook.Memory.ReadString(Offsets.PlayerName, Encoding.UTF8, 512, true);
+            Log.Write("Player Ptr: " + PlayerPtr.ToString("X"));
+
+            //Log.Write(wowHook.Memory.Read<IntPtr>(Offsets.PlayerBase).ToString("X"));
+            var Player = new Object(wowHook, PlayerPtr);
+            Log.Write("Player GUID: " + Player.GUID.ToString("X"));
+            Log.Write("Type: " + Player.Type);
+            Log.Write("Player X: " + Player.x);
+            Log.Write("Player Y: " + Player.y);
+            Log.Write("Player Z: " + Player.z);
+            
+            DataTable dt = new DataTable();
+            dt.Columns.Add("BaseAddress");
+            dt.Columns.Add("Type");
+            dt.Columns.Add("GUID");
+            dt.Columns.Add("X");
+            dt.Columns.Add("Y");
+            dt.Columns.Add("Z");
+            dgv.DataSource = dt;
+            
+            foreach (var o in Objects.Where(x => x.Type != ConstantEnums.WoWObjectType.Corpse && x.Type != ConstantEnums.WoWObjectType.Item))
+            {
+                var drNew = dt.NewRow();
+                drNew["BaseAddress"] = o.BaseAddress.ToString("X");
+                drNew["Type"] = o.Type.ToString();
+                drNew["GUID"] = o.GUID.ToString("X");
+                drNew["X"] = o.x;
+                drNew["Y"] = o.y;
+                drNew["Z"] = o.z;
+                dt.Rows.Add(drNew);
+            }
+        }
+
+        private void cmdZone_Click(object sender, EventArgs e)
+        {
+            lua.DoString("zoneData = GetZoneText()");
+            Log.Write("Zone: " + lua.GetLocalizedText("zoneData"), Color.Black);
         }
     }
 }
